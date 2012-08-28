@@ -1,5 +1,5 @@
 
-	rootDir <- 'E:\\agmip-src\\AgMIP-Climate-IT-pilot-tools-R\\';
+	rootDir <- 'E:\\git-src\\AgMIP-Climate-IT-pilot-tools-R\\';
 	programDir <- paste(rootDir, 'r\\', sep='');
 	dataDir <- paste(rootDir, 'data\\', sep='');
 	
@@ -8,12 +8,12 @@
 	
 	## input variables
 	basefile <- paste(dataDir, 'USAM0XXX.AgMIPm', sep='');
-	futloc <- paste(dataDir, sep='');
-	futname <- 'USAM5LXA'; #'NLHA5LXA';
+	futloc <- paste(dataDir, 'simple\\', sep='');
+	futname <- 'USAM5PXA'; #'USAM5LXA'; #'NLHA5LXA';
 	shortfile <- 'USAM'; #'NLHA';
-	stnlat <- 51+58/60;
-	stnlon <- 5+38/60;
-	stnelev <- 7;
+	stnlat <- 42.017; #51+58/60;
+	stnlon <- -93.750; #5+38/60;
+	stnelev <- 329; #7;
 	stntavg <- -99.0;
 	stntamp <- -99.0;
 	basedecs <- c(1980, 2009); #[1980 2009];

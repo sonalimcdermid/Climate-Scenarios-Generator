@@ -1,6 +1,16 @@
 
 readme.txt
 
+######################################################################
+#[update at Aug-28, 2012]
+
+1. added acr_agmip0000.R and run_batch0000.R
+
+- acr_agmip0000.R : it is converted but needed to test with bunch of data set
+
+
+######################################################################
+
 # by Yunchul Jung
 # at 8/12/2012
 

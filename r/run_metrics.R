@@ -3,7 +3,7 @@
 # by Yunchul Jung
 # at 8/12/2012
 
-	rootDir <- 'E:\\agmip-src\\AgMIP-Climate-IT-pilot-tools-R\\';
+	rootDir <- 'E:\\git-src\\AgMIP-Climate-IT-pilot-tools-R\\';
 	programDir <- paste(rootDir, 'r\\', sep='');
 	dataDir <- paste(rootDir, 'data\\', sep='');
 	

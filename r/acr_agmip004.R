@@ -288,7 +288,7 @@ acr_agmip004 <- function(basefile,futloc,futname,shortfile,stnlat,stnlon,stnelev
 	## write it all out with proper station code
 
 	## simple AgMIP format: 
-	sink(paste(futloc, futname, '.AgMIPunix', sep=''));
+	sink(paste(futloc, futname, '.AgMIP', sep=''));
 
 	cat(c('*WEATHER DATA : ', headerplus));
 	cat('\n');
