@@ -3,7 +3,7 @@
 # by Yunchul Jung
 # at 8/12/2012
 
-	rootDir <- 'E:\\git-src\\AgMIP-Climate-IT-pilot-tools-R\\';
+	rootDir <- 'C:\\Users\\aruane\\Documents\\_work\\GISS\\AgMIP\\Climate-IT\\R-Yunchul\\';
 	programDir <- paste(rootDir, 'r\\', sep='');
 	dataDir <- paste(rootDir, 'data\\', sep='');
 	
@@ -11,11 +11,11 @@
 	source(paste(programDir, 'acr_agmip2metrics.R', sep=''));
 
 	## input variables	
-	infile <- paste(dataDir, 'USAM0XXX.AgMIP', sep='');
+	infile <- paste('C:\\Users\\aruane\\Documents\\_work\\GISS\\AgMIP\\SouthAsia\\StationLocations\\SouthAsiaSeries\\', 'BDSY0QXX.AgMIP', sep='');
 	jdstart = 160;
 	jdend = 220;
 	column = 8;
-	analysistype = 'maxconsecutivedays';
+	analysistype = 'mean';
 	reference = 10;
 	specialoperator = 1;
 
