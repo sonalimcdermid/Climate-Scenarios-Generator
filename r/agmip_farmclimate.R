@@ -20,7 +20,9 @@
 #
 #  THIS WAS FORMERLY acr_agmip022.m and acr_agmip021.m  --  May 31, 2013
 #    Updated to be used with the Guide for Running AgMIP Climate Scenario Generation Tools 
-#    Updated for Version 2.0 of the Guide   --  July 25, 2013 by Nicholas Hudson
+#    Updated for Version 2.0 of the Guide   --  July 25, 2013 by N. Hudson
+#    Updated to handle negative Vprs values and NaN Dewp values  -- August 13, 2013 by N. Hudson
+#    Updated to correct NaNs created in sitechangeP calculation -- August 29, 2013  by N. Hudson
 #      
 #
 #     Author: Alex Ruane
@@ -37,8 +39,8 @@ agmip_farmclimate <- function(seedfile,shortregion,headerplus,sitelat,sitelon,ro
 #                                                         ##      ~\\R\\data\\Climate\\Historical
 #   shortregion <- 'MB'                                   ##  Short name for output file
 #   headerplus  <- 'Embu, Kenya'                          ##  Additional header information
-#   sitelat     <- c(-0.55, -00.70, -00.60, -00.75)       ##  Site latitudes,  1st site is station
-#   sitelon     <- c(37.46,  37.54,  37.58,  37.69)       ##  Site longitudes, 1st site is station
+#   sitelat     <- c(-00.70, -00.60, -00.75)              ##  Latitudes of farm sites
+#   sitelon     <- c( 37.54,  37.58,  37.69)              ##  Longitudes of farm sites
 #   rootDir     <- '*** your directory here ***\\R\\'     ##  <- Enter location here <-
 #   datashort   <- 'EAfrica'                              ##  WorldClim subregion
 #     
@@ -110,7 +112,8 @@ agmip_farmclimate <- function(seedfile,shortregion,headerplus,sitelat,sitelon,ro
   }
   
     ##  Check for whole months of missing rainfall in seed (if so, don't change rainfall)
-  sitechangeP[is.infinite(sitechangeP)] <- 1                                        
+  sitechangeP[is.infinite(sitechangeP)] <- 1
+  sitechangeP[is.na(sitechangeP)]       <- 0 
   
   ###--------------------------------------------------------------------------------------------###
   ##################################################################################################
@@ -146,12 +149,15 @@ agmip_farmclimate <- function(seedfile,shortregion,headerplus,sitelat,sitelon,ro
       newscen[dd,7]   <- base[dd,7] + Tdelt[thismm]
       newscen[dd,8]   <- min(base[dd,8] * Pdelt[thismm],999.9)  #  Ensure no formating issue
       
-      ##  Use Relative Humidity to calculate Vapor Pressure
-      es[dd] <- eos*exp(Lv/Rv*(1/To - 1/(newscen[dd,6]+To)))
-      newscen[dd,11]  <- newscen[dd,12]/100 * es[dd]
-      
-      ##  Calculate Dew Point Temperature
-      newscen[dd,10] = 1/((1/To)-(Rv/Lv)*log(newscen[dd,11]/eos)) - To
+      ##  Use Relative Humidity to calculate Vapor Pressure and Dew Point Temperature
+      if (newscen[dd,12] != -99) {
+        es[dd] <- eos*exp(Lv/Rv*(1/To - 1/(newscen[dd,6]+To)))
+        newscen[dd,11]  <- newscen[dd,12]/100 * es[dd]
+        newscen[dd,10]  <- 1/((1/To)-(Rv/Lv)*log(newscen[dd,11]/eos)) - To
+      } else {
+        newscen[dd,11]  <- -99.0
+        newscen[dd,10]  <- -99.0
+      }     
     }
     
     ##  Calculate Tave and Tamp
