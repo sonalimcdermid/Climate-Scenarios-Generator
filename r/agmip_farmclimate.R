@@ -23,6 +23,7 @@
 #    Updated for Version 2.0 of the Guide   --  July 25, 2013 by N. Hudson
 #    Updated to handle negative Vprs values and NaN Dewp values  -- August 13, 2013 by N. Hudson
 #    Updated to correct NaNs created in sitechangeP calculation -- August 29, 2013  by N. Hudson
+#    Updated to ensure Vprs >= 0.1          --  November 20, 2013 by N. Hudson
 #      
 #
 #     Author: Alex Ruane
@@ -32,7 +33,7 @@
 #
 ###################################################################################################
 
-agmip_farmclimate <- function(seedfile,shortregion,headerplus,sitelat,sitelon,rootDir,datashort) {
+agmip_farmclimate <- function(seedfile,shortregion,headerplus,sitelat,sitelon,rootDir,dataDir,datashort) {
   
   ##  Begin debug
 #   seedfile    <- 'KEMB0XXX'                             ##  .AgMIP seed file name in 
@@ -56,13 +57,13 @@ agmip_farmclimate <- function(seedfile,shortregion,headerplus,sitelat,sitelon,ro
   if (length(sitelat)  != length(sitelon)) stop('The variables sitelat (', length(sitelat) ,') and sitelon (', length(sitelon) ,') are of different lengths.  Check these vectors to ensure latitudes and longitudes correctly correspond to the desired site locations.')
   
   ##  Load data
-  subTmean  <- readMat(paste(rootDir, 'data\\WorldClim\\', datashort, '_subTmean.mat', sep=''))$subTmean
-  subPrec   <- readMat(paste(rootDir, 'data\\WorldClim\\', datashort, '_subPrec.mat' , sep=''))$subPrec
-  subAlt    <- readMat(paste(rootDir, 'data\\WorldClim\\', datashort, '_subAlt.mat'  , sep=''))$subAlt
-  sublat    <- readMat(paste(rootDir, 'data\\WorldClim\\', datashort, '_sublat.mat'  , sep=''))$sublat
-  sublon    <- readMat(paste(rootDir, 'data\\WorldClim\\', datashort, '_sublon.mat'  , sep=''))$sublon
-  baseinfo  <- read.table(paste(rootDir, 'data\\Climate\\Historical\\', seedfile, '.AgMIP', sep=''), skip=3, nrows=1)
-  base      <- read.table(paste(rootDir, 'data\\Climate\\Historical\\', seedfile, '.AgMIP', sep=''), skip=5, sep="")
+  subTmean  <- readMat(paste(dataDir, '/data/WorldClim/', datashort, '_subTmean.mat', sep=''))$subTmean
+  subPrec   <- readMat(paste(dataDir, '/data/WorldClim/', datashort, '_subPrec.mat' , sep=''))$subPrec
+  subAlt    <- readMat(paste(dataDir, '/data/WorldClim/', datashort, '_subAlt.mat'  , sep=''))$subAlt
+  sublat    <- readMat(paste(dataDir, '/data/WorldClim/', datashort, '_sublat.mat'  , sep=''))$sublat
+  sublon    <- readMat(paste(dataDir, '/data/WorldClim/', datashort, '_sublon.mat'  , sep=''))$sublon
+  baseinfo  <- read.table(paste(rootDir, '/input/', seedfile, '.AgMIP', sep=''), skip=3, nrows=1)
+  base      <- read.table(paste(rootDir, '/input/', seedfile, '.AgMIP', sep=''), skip=5, sep="")
   
   ##  Create vector with station lat/lon
   full.lat  <- c(baseinfo$V2, sitelat)
@@ -120,13 +121,13 @@ agmip_farmclimate <- function(seedfile,shortregion,headerplus,sitelat,sitelon,ro
   ###--------------------------------------------------------------------------------------------###
   
   ##  Print .AgMIP files
-  cat('Printing .AgMIP files to ', rootDir, 'data\\Climate\\Historical\\ ...\n\n', sep='')
+  cat('Printing .AgMIP files to ', rootDir, '/output/ ...\n\n', sep='')
   flush.console()
   for (thissite in 1:length(sitelat)) {
     if ((thissite)<10)    sitez <- paste(0, as.character(thissite), sep='')
     if ((thissite)>10)    sitez <- as.character(thissite)
     filename  <- paste(shortregion, sitez, substr(seedfile,5,6), 'F', substr(seedfile,8,8), sep='')
-    outfile   <- paste(rootDir, 'data\\Climate\\Historical\\', filename, '.AgMIP', sep='')
+    outfile   <- paste(rootDir, '/output/', filename, '.AgMIP', sep='')
     Tdelt     <- sitechangeT[,thissite]
     Pdelt     <- sitechangeP[,thissite]
     
@@ -147,12 +148,16 @@ agmip_farmclimate <- function(seedfile,shortregion,headerplus,sitelat,sitelon,ro
       
       newscen[dd,6]   <- base[dd,6] + Tdelt[thismm]
       newscen[dd,7]   <- base[dd,7] + Tdelt[thismm]
-      newscen[dd,8]   <- min(base[dd,8] * Pdelt[thismm],999.9)  #  Ensure no formating issue
+      newscen[dd,8]   <- min(base[dd,8] * Pdelt[thismm],999.9)  #  Ensure no formatting issue
       
       ##  Use Relative Humidity to calculate Vapor Pressure and Dew Point Temperature
       if (newscen[dd,12] != -99) {
         es[dd] <- eos*exp(Lv/Rv*(1/To - 1/(newscen[dd,6]+To)))
         newscen[dd,11]  <- newscen[dd,12]/100 * es[dd]
+		
+		##  Add check to ensure Vprs >= 0.1
+		if (newscen[dd,11] < 0.1) newscen[dd,11] <- 0.1
+		
         newscen[dd,10]  <- 1/((1/To)-(Rv/Lv)*log(newscen[dd,11]/eos)) - To
       } else {
         newscen[dd,11]  <- -99.0

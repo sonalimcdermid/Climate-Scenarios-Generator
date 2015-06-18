@@ -1,0 +1,48 @@
+<tool id="base_clim_generator" name="Generate .AgMIP farm sites weather" version="1.0.0">
+  <description>Generate .AgMIP daily baseline weather for farm sites</description>
+  <requirements>
+     <requirement type="package">agmip_sce_generator</requirement>
+     <requirement type="package">R</requirement>
+  </requirements>
+  <command>base_generator.sh $seedfile $seedfile.name $shortregion "$headerplus" $lat $lon $datashort $agmipclimateoutput</command>
+  <inputs>
+        <param name="seedfile" type="data" format="agmip" label="Input .AgMIP Climate Observation" />
+        <param name="shortregion" type="text" label="Short name for output file" value="MB" />
+        <param name="headerplus" type="text" size="100" lable="Additional header information" value="Embu, Kenya" />
+        <param name="lat" type="text" size="100" label="Latitudes of each farm site" value="-00.70,-00.60,-00.75" />
+        <param name="lon" type="text" size="100" label="Corresponding longitude of each farm site" value="37.54,37.58,37.69" />
+        
+        <param name="datashort" type="select" label="Select region">
+             <option selected="yes" value="EAfrica">East Africa</option>
+             <option value="IGB">IGB</option>
+             <option value="Pakistan">Pakistan</option>
+             <option value="SAfrica">South Africa</option>
+             <option value="SIndiaSriLanka">South India and Srilanka</option>
+             <option value="WAfrica">West Africa</option>
+         </param>
+  </inputs>
+
+<outputs>
+    <data format="zip" name="agmipclimateoutput" label=".AgMIP baseline Climate" />
+</outputs>
+
+  <help>
+
+**What it does**
+
+This tool generates baseline (Historical 1981-2010) daily weather (.AgMIP files) for a series of locations (farms) in a given region. User is required to input a seed file (in .AgMIP format) from within the region in order to calibrate the region, information that user want to naming the generated .AgMIP files, and a latitude and longitude list of the sites that want the historical daily weather be generated. So far it only works for Easter Africa, Western Africa, Southern Africa, Pakistan, Indo-Gangetic Basin, and South India and Sri Lanka.
+
+- Region boundary::
+    
+   Datashort        Region Name             S.Lat    N.Lat   W.Lon   E.Lon
+   EAfrica          Eastern Africa          20 S     22 N    20 E    53 E
+   WAfrica          Western Africa          3 N      25 N    18 W    15 E
+   SAfrica          Southern Africa         36 S     8 S     11 E    51 E
+   Pakistan         Pakistan                23 N     38 N    60 E    80 E
+   IGB              Indo-Gangetic Basin     15N      38 N    65 E    97 E
+   SIndiaSriLanka   S. India and Sri Lanka  5N       30 N    70 E    30 E
+
+This tool uses R scripts written by Alex Ruane (alexabder.c.ruane@nasa.gov)
+  </help>
+
+</tool>

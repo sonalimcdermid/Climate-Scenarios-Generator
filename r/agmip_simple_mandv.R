@@ -2,18 +2,20 @@
 #         agmip_simple_mandv.R
 #
 #  This script adjusts a climate time series for climate scenarios.  This is designed for AgMIP
-#   mean and variablity scenarios using the 'stretched distribution' approach that is related to
+#   mean and variability scenarios using the 'stretched distribution' approach that is related to
 #   quantile mapping.
 #
-#  This version aims for correct statistical paramaters for distribution matching.
+#  This version aims for correct statistical parameters for distribution matching.
 #
 #  The .AgMIP files produced by this script change the eighth digit (or the 8 digit code) to F 
 #   where F = Mean and daily variability change for Tmax, Tmin, and P.
 #
-#  THIS WAS FORMERLY acr_agmip100.R         --  June 6, 2013
+#  THIS WAS FORMERLY acr_agmip100.R                   --  June 6, 2013
 #    Updated to be used with the Guide for Running AgMIP Climate Scenario Generation Tools 
 #    acr_agmip100.R was based on acr_giss250.m and acr_giss513.m
-#    Updated for Version 2.0 of the Guide   --  July 25, 2013 by Nicholas Hudson
+#    Updated for Version 2.0 of the Guide             --  July 25, 2013 by Nicholas Hudson
+#    Updated to ensure Tmax is > Tmin                 --  October 24, 2013 by Nicholas Hudson
+#    Updated to mean adjust P if can't fit on 3rd try --  March 3, 2014 by Nicholas Hudson
 #
 #
 #     Author: Alex Ruane
@@ -127,7 +129,7 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
 #   rm(library)
 #   
   ##  End debug
-  
+    
   ##  Load data and set variables
   ddate       <- base[,1] %% 1000
   loop.test   <- rep(0,5)
@@ -192,7 +194,7 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
   ####################################### Tmax and Tmin Loop #######################################
   ###--------------------------------------------------------------------------------------------###
   while (loop.test[1]<3 && (loop.test[2] != 1 || loop.test[3] != 1)) {
-#     cat('\n',loop.test)
+#     cat('\n',loop.test,'\n')
     loop.test[1]    <- loop.test[1] + 1
     loop.test[2:3]  <- 0
     loop.test[5]    <- 0
@@ -202,6 +204,7 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
 #     rundiag <- 0  ##  Turn on diagnostic, 0 = No diagnostic, 1 = January, 2 = ..., 13 = all months
     
     for(mm in 1:12){
+#       cat('Month = ', month.name[mm], '\n')
       monthfailed <- 0
       thismonth   <- eval(parse(text = month.abb[mm])) ##  Vector of month days over 30 years
       
@@ -221,10 +224,11 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
       newcdf          <- pnorm(tcov,newmu[mm,col],newstd[mm,col])
       basecdflims     <- c(tcov[min(which(basecdf > 1e-6))],tcov[max(which(basecdf < (1-1e-4)))])
       newcdflims      <- c(tcov[min(which(newcdf  > 1e-6))],tcov[max(which(newcdf  < (1-1e-4)))])
-      cdflims         <- c(min(c(basecdflims[1],newcdflims[1])), max(c(basecdflims[2],newcdflims[2])))
+      cdflims         <- c(min(c(basecdflims[1],newcdflims[1])), 
+                           max(c(basecdflims[2],newcdflims[2])))
       
       ##  R hist bins handles outliers differently than Matlab, widen cdflims by +/-20 for cdfvect
-  #       cdfvect         <- seq(cdflims[1],cdflims[2],0.1)
+#       cdfvect         <- seq(cdflims[1],cdflims[2],0.1)
       cdfvect2        <- seq(cdflims[1]-20,cdflims[2]+20,0.1)
       cdfvect3        <- seq(min(cdfvect2)-0.05,max(cdfvect2)+0.05,0.1)
       
@@ -233,10 +237,12 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
       newcdf  <- pnorm(cdfvect2,newmu[mm,col],newstd[mm,col])
       
       ##  Check for goodness of fit in baseline period as standard
-      truebasecdf <- 1/length(ranklist)*cumsum(hist(base[thismonth,col],cdfvect3, plot = FALSE)$counts)
+      truebasecdf <- 1/length(ranklist)*cumsum(hist(base[thismonth,col], cdfvect3,
+                                                    plot = FALSE)$counts)
       
       ##  Check for initial goodness of fit in future period (newscen begins = base)
-      truenewcdf <- 1/length(ranklist)*cumsum(hist(newscen[thismonth,col],cdfvect3, plot = FALSE)$counts)
+      truenewcdf  <- 1/length(ranklist)*cumsum(hist(newscen[thismonth,col], cdfvect3,
+                                                    plot = FALSE)$counts)
       
       ##  Continue until future distribution, in comparison to theoretical future distribution,
       ##    looks like baseline distribution.
@@ -275,6 +281,7 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
           ##  Now adjust each of these members randomly to a new location assign according to a
           ##    random sequence and from center out in the spread.
           sequence  <- sample(length(thischunk))
+          
           for(jj in 1:length(thischunk)){
             origloc   <- thismonth[thischunk[sequence[jj]]]
             
@@ -288,13 +295,18 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
               if (abs(rand.num) > 2)   rand.num  <- abs(rand.num*2)/rand.num
               
               newscen[origloc,col] <- thisval + delt + spread*rand.num
-#               cat('\nthisval =', as.character(thisval),'\t\t\t\tdelt =', as.character(round(delt*100)/100),'\t\t\t\trand =', as.character(round(100*rand.num)/100),'\t\t\t\tspread =', as.character(round(100*spread)/100),'\t\t\t\tnewval =', as.character(round(100*newscen[origloc,col])/100))
+#               cat('\nthisval =', as.character(thisval),'\t\t\t\tdelt =',
+#                   as.character(round(delt*100)/100),'\t\t\t\trand =',
+#                   as.character(round(100*rand.num)/100),'\t\t\t\tspread =',
+#                   as.character(round(100*spread)/100),'\t\t\t\tnewval =',
+#                   as.character(round(100*newscen[origloc,col])/100))
             }
           }
         }
         
         ##  Check for initial goodness of fit in future period (newscen begins = base)
-        truenewcdf  <- 1/length(ranklist)*cumsum(hist(newscen[thismonth,col],cdfvect3, plot = FALSE)$counts)
+        truenewcdf  <- 1/length(ranklist)*cumsum(hist(newscen[thismonth,col], cdfvect3,
+                                                      plot = FALSE)$counts)
         
         meanerr     <- abs(mean(newscen[thismonth,col])-newmu[mm,col])
         stderr      <- abs(sd(newscen[thismonth,col])/newstd[mm,col]-1)
@@ -305,18 +317,21 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
           
           if (meanerr > meanfitstandard[mm,col]) {
             meanfitstandard[mm,col] <- meanfitstandard[mm,col] + 0.05
-#             cat('meanfitstandard for month', as.character(mm), 'set to', as.character(meanfitstandard[mm,col]),'column =',as.character(col),'\n')
+#             cat('meanfitstandard for month', as.character(mm), 'set to',
+#                 as.character(meanfitstandard[mm,col]),'column =',as.character(col),'\n')
           }
           
           if (stderr > stdfitstandard[mm,col])  {
             stdfitstandard[mm,col]  <- stdfitstandard[mm,col] + 0.002
-#             cat('stdfitstandard for month', as.character(mm), 'set to', as.character(100*stdfitstandard[mm,col]),'column =',as.character(col),'\n')
+#             cat('stdfitstandard for month', as.character(mm), 'set to',
+#                 as.character(100*stdfitstandard[mm,col]),'column =',as.character(col),'\n')
           }
           
           if ((meanfitstandard[mm,col] > 0.3) || (stdfitstandard[mm,col] > 0.1))  {
             monthfailed             <- 1
             if (loop.test[1] == 2) newscen[thismonth,col]  <- -99
-            cat('POOR FIT FOR ', month.name[mm], ' (', as.character(mm),') in column = ', as.character(col),' (Tmax)\n', sep='')
+            cat('POOR FIT FOR ', month.name[mm], ' (', as.character(mm),') in column = ',
+                as.character(col),' (Tmax)\n', sep='')
             
             cat('Meanerr =', as.character(meanerr), '     Stderr =', as.character(stderr),'\n')
             
@@ -371,9 +386,11 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
         
     ########################################### Tmin Loop ##########################################
     col     <- 7
+#     cat('\n',loop.test,'\n')
 #     rundiag <- 0  ##  Turn on diagnostic, 0 = No diagnostic, 1 = January, 2 = ..., 13 = all months
     
     for(mm in 1:12){
+#       cat('Month = ', month.name[mm], '\n')
       monthfailed <- 0
       thismonth   <- eval(parse(text = month.abb[mm])) ##  Vector of month days over 30 years
       
@@ -403,7 +420,8 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
       basecdflims   <- c(tcov[min(which(basecdf > 1e-6))],tcov[max(which(basecdf < (1-1e-4)))])
       intermcdflims <- c(tcov[min(which(intermcdf > 1e-6))],tcov[max(which(intermcdf < (1-1e-4)))])
       newcdflims    <- c(tcov[min(which(newcdf > 1e-6))],tcov[max(which(newcdf < (1-1e-4)))])
-      cdflims       <- c(min(c(basecdflims[1],newcdflims[1],intermcdflims[1])), max(c(basecdflims[2],newcdflims[2],intermcdflims[2])))
+      cdflims       <- c(min(c(basecdflims[1],newcdflims[1],intermcdflims[1])),
+                         max(c(basecdflims[2],newcdflims[2],intermcdflims[2])))
       
       ##  R hist bins handles outliers differently than Matlab, widen cdflims by +/-5 for cdfvect
 #       cdfvect       <- seq(cdflims[1],cdflims[2],0.1)
@@ -416,13 +434,16 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
       newcdf        <- pnorm(cdfvect2,newmu[mm,col],newstd[mm,col])
       
       ##  Check for goodness of fit in baseline period as standard
-      truebasecdf   <- 1/length(ranklist)*cumsum(hist(base[thismonth,col],cdfvect3, plot = FALSE)$counts)
+      truebasecdf   <- 1/length(ranklist)*cumsum(hist(base[thismonth,col], cdfvect3,
+                                                      plot = FALSE)$counts)
       
       ##  Check for goodness of fit in intermediate scenario
-      trueintermcdf <- 1/length(ranklist)*cumsum(hist(intermscen[thismonth],cdfvect3, plot = FALSE)$counts)
+      trueintermcdf <- 1/length(ranklist)*cumsum(hist(intermscen[thismonth], cdfvect3,
+                                                      plot = FALSE)$counts)
       
       ##  Check for initial goodness of fit in future period (newscen begins = base)
-      truenewcdf    <- 1/length(ranklist)*cumsum(hist(newscen[thismonth,col],cdfvect3, plot = FALSE)$counts)
+      truenewcdf    <- 1/length(ranklist)*cumsum(hist(newscen[thismonth,col], cdfvect3,
+                                                      plot = FALSE)$counts)
       
       ##  Continue until future distribution, in comparison to theoretical future distribution, 
       ##    looks like  baseline distribution (MSE does not increase by more than 5%).
@@ -436,7 +457,8 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
       meanfitstandard[mm,col] <- 0.1
       stdfitstandard[mm,col]  <- 0.002
       
-      while (((meanerr > meanfitstandard[mm,col]) || (stderr > stdfitstandard[mm,col])) && (monthfailed == 0)) {
+      while (((meanerr > meanfitstandard[mm,col]) || (stderr > stdfitstandard[mm,col])) 
+             && (monthfailed == 0)) {
 #         cat('meanerr <- ', as.character(format(meanerr, width=6, digits=3, trim=TRUE)),
 #             '\t\t\t\tstderr <- ', as.character(format(stderr*100, width=6, digits=3, trim=TRUE)),
 #             '\t\t\t\tmeanfs <- ', as.character(format(meanfitstandard[mm,col], width=5)),
@@ -476,7 +498,11 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
               
 #               newscen[origloc,col] <- thisval + delt + spread*rand.num
               newscen[origloc,col] <- thisval + delt + spread*rand.num*0.5
-#               cat('\nthisval =', as.character(thisval),'\t\t\t\tdelt =', as.character(round(delt*100)/100),'\t\t\t\trand =', as.character(round(100*rand.num)/100),'\t\t\t\tspread =', as.character(round(100*spread)/100),'\t\t\t\tnewval =', as.character(round(100*newscen[origloc,col])/100))
+#               cat('\nthisval =', as.character(thisval),'\t\t\t\tdelt =',
+#                   as.character(round(delt*100)/100),'\t\t\t\trand =',
+#                   as.character(round(100*rand.num)/100),'\t\t\t\tspread =',
+#                   as.character(round(100*spread)/100),'\t\t\t\tnewval =',
+#                   as.character(round(100*newscen[origloc,col])/100))
             }
           }
         }
@@ -484,7 +510,8 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
         if (loop.test[5] == 1) break
         
         ##  Check for initial goodness of fit in future period (newscen begins = base)
-        truenewcdf  <- 1/length(ranklist)*cumsum(hist(newscen[thismonth,col],cdfvect3, plot = FALSE)$counts)
+        truenewcdf  <- 1/length(ranklist)*cumsum(hist(newscen[thismonth,col], cdfvect3,
+                                                      plot = FALSE)$counts)
         meanerr     <- abs(mean(newscen[thismonth,col])-newmu[mm,col])
         stderr      <- abs(sd(newscen[thismonth,col])/newstd[mm,col]-1)
         
@@ -494,12 +521,14 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
           
           if (meanerr > meanfitstandard[mm,col]) {
             meanfitstandard[mm,col] <- meanfitstandard[mm,col] + 0.05
-#             cat('meanfitstandard for month', as.character(mm), 'set to', as.character(meanfitstandard[mm,col]),'column =',as.character(col),'\n')
+#             cat('meanfitstandard for month', as.character(mm), 'set to',
+#                 as.character(meanfitstandard[mm,col]),'column =',as.character(col),'\n')
           }
           
           if (stderr > stdfitstandard[mm,col])  {
             stdfitstandard[mm,col] <- stdfitstandard[mm,col] + 0.002
-#             cat('stdfitstandard for month', as.character(mm), 'set to', as.character(100*stdfitstandard[mm,col]),'column =',as.character(col),'\n')
+#             cat('stdfitstandard for month', as.character(mm), 'set to', 
+#                 as.character(100*stdfitstandard[mm,col]),'column =',as.character(col),'\n')
           }
           
           if ((meanfitstandard[mm,col] > 0.3) || (stdfitstandard[mm,col] > 0.1))  {
@@ -560,13 +589,13 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
       if (mm == 12)  loop.test[3] <- 1                    ##  Completion validation
     }                      ##  Month loop for Tmin
     
-    ##  Test to ensure Tmin > Tmax
+    ##  Test to ensure Tmax > Tmin
     aa <- newscen[,6]-newscen[,7]
-    bb <- which(aa < 0)
+    bb <- which(aa <= 0)
 #     cat('Number of Tmin > Tmax  =  ', as.character(length(bb)), '\n Mean error = ', as.character(mean(aa[bb])), '\n')
     
     if (length(bb) > 0){
-      for(ii in 1:length(which(aa < 0))){
+      for(ii in 1:length(bb)){
         newscen[bb[ii],6] <- mean(as.numeric(newscen[bb[ii],6:7])) + 0.1
         newscen[bb[ii],7] <- newscen[bb[ii],6] - 0.2
       }
@@ -584,18 +613,25 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
   ###--------------------------------------------------------------------------------------------###
   ####################################### Precipitation Loop #######################################
   ###--------------------------------------------------------------------------------------------###
-  loop.test[1] = 0                                    ##  Reset while loop counter
-  while (loop.test[1]<3 && loop.test[4] != 1) {
-#     cat('\n',loop.test, '\n')
-    loop.test[1]  <- loop.test[1] + 1  
-    loop.test[5]  <- 0
-    col     <- 8
-#     rundiag <- 0  ##  Turn on diagnostic, 0 = No diagnostic, 1 = January, 2 = ..., 13 = all months
+  ##  The while loop that attempts to fit the new precipitation distribution to the same parameters 
+  ##   as the baseline distribution relies on loop.test[4] = mm.
+  ##  This while loop is given 3 opportunities to succeed, as is counted by loop.test[1].
+  ##  When the fit is successful, loop.test[4] = loop.test[4] + 1, to move the calculation to the
+  ##   next month.  After completing all months successfully, loop.test[4] will be set to 13.
+  ##  If the while loop is not successful in adjusting the distribution, only a mean change is
+  ##   applied to that month without maintaining the distribution parameters from the baseline.
+  
+  col     <- 8
+#   rundiag <- 0  ##  Turn on diagnostic, 0 = No diagnostic, 1 = January, 2 = ..., 13 = all months
+  loop.test[4]      <- 1                      ##  Set loop.test[4] for mm = 1 
+  loop.test[c(1,5)] <- 0                      ##  Reset while loop counter
+  
+  for(mm in 1:12) {
     
-    for(mm in 1:12) {
-#       cat('Month = ', month.name[mm], '\n')
-      monthfailed     <- 0
-      thismonth       <- eval(parse(text = month.abb[mm])) ## Vector of month days over 30 years
+    if (loop.test[1] == 0) {
+#       cat('\nMonth = ', month.name[mm])
+#       cat('\n', loop.test)
+      thismonth       <- eval(parse(text = month.abb[mm]))    ## Vector of month days over 30 years
       
       ##  First calculate baseline distribution of precipitation
       basemu        <- mean(base[thismonth,col])
@@ -604,14 +640,6 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
       basealpha     <- NaN
       basebeta      <- NaN
       
-      if (nbasewetdays < 0) next      ##  Test for nonzero monthly precipitation
-        
-      if (nbasewetdays > 31) {        ##  Need to have enough wet days over 31 years for gamma fit
-        gammadistwork <- fitdistr(base[basewetdays,col],dgamma, start=list(shape = 1, rate = 0.1), lower=0.001)
-        basealpha     <- as.numeric(gammadistwork$estimate[1])
-        basebeta      <- 1/as.numeric(gammadistwork$estimate[2])
-      }
-      
       ##  Calculate statistics for rainfall and new mean for each month
       newmu[mm,col]   <- basemu*meandelt[mm,col]
       
@@ -619,30 +647,53 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
       ##    0.0005 would reduce a month with 930 wet days to ~0 wet days
       if (newmu[mm,col] < 0.001) newmu[mm,col] <- 0.001
       
+      ##  Test for nonzero monthly precipitation
+      if (nbasewetdays < 0)   next
+      
+      ##  Test for > 31 total days of precipitation to perform gamma fit
+      if (nbasewetdays > 31) {
+        gammadistwork <- fitdistr(base[basewetdays,col],dgamma, start=list(shape = 1, rate = 0.1),
+                                  lower=0.001)
+        basealpha     <- as.numeric(gammadistwork$estimate[1])
+        basebeta      <- 1/as.numeric(gammadistwork$estimate[2])
+      }
+      
+      ##  Directly impose alpha for months with > 31 total days of precipitation
       if (!is.nan(basealpha)) {
         newalpha[mm] <- basealpha*gamfactor[mm]
-        if (gamfactor[mm] < 0) newalpha[mm] <- -gamfactor[mm]       ##  Directly imposed alpha
+        if (gamfactor[mm] < 0) newalpha[mm] <- -gamfactor[mm]
       }
       
       ##  Cannot have more wet days than days, workaround to round 0.5 to 1
       posneg            <- sign(nbasewetdays*wetfactor[mm])
-      nnewwetdays[mm]   <- min(c((trunc(abs(nbasewetdays*wetfactor[mm]) + 0.5)*posneg),length(thismonth)))
+      nnewwetdays[mm]   <- min(c((trunc(abs(nbasewetdays*wetfactor[mm]) + 0.5)*posneg),
+                                 length(thismonth)))
       
       ##  Must have at least 1 rainy if baseline month had at least 1 rainy day
-      if (nnewwetdays[mm] < 1) {
-#         cat('  Wet days reduced to zero in ', month.name[mm], '.  Automatically set to 1 to properly fit distribution.\n', sep='')
-        nnewwetdays[mm]   <- max(nnewwetdays[mm],1)
-      }
-      
-      ##  Number of rainy days in future scenario
-      newwetdays    <- thismonth[newscen[thismonth,col] > 0]
+      if (nnewwetdays[mm] < 1)  nnewwetdays[mm]   <- max(nnewwetdays[mm],1)
       
       ##  Set beta so mean change is imposed (mean of wet days = alpha*beta) and accounts for
       ##   changing number of wet days
-      if (!is.nan(basealpha)) newbeta[mm] <- newmu[mm,col]*length(thismonth)/nnewwetdays[mm]/newalpha[mm]
+      if (!is.nan(basealpha)) newbeta[mm] <- newmu[mm,col]*
+        length(thismonth)/nnewwetdays[mm]/newalpha[mm]
+      
+    }
+    
+    while (loop.test[1] < 3 && loop.test[4] == mm) {
+      
+      ##  Reset newscen on subsequent loops
+      if (loop.test[1] > 0)   newscen[thismonth,c(5,col)] <- base[thismonth,c(5,col)]
+      
+      ##  Reset loop.test and count loop
+      loop.test[1]  <- loop.test[1] + 1
+      loop.test[5]  <- 0
+      
+      ##  Set number of rainy days in future scenario
+      newwetdays    <- thismonth[newscen[thismonth,col] > 0]
       
       ##  Set new dry days according to smallest rainfall totals
       while (nnewwetdays[mm] < length(newwetdays)) {
+        
         wetrank   <- sort(newscen[newwetdays,col])
         newdry    <- length(newwetdays)-nnewwetdays[mm]
         drizdays  <- which(newscen[newwetdays,col] == wetrank[1])
@@ -658,7 +709,8 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
           newscen[newwetdays[drizdays[sequence[1:newdry]]],col] <- 0
           
           ##  Increase radiation on the new dry days by 10% following Mearns et al., 1996
-          newscen[newwetdays[drizdays[sequence[1:newdry]]],5]   <- newscen[newwetdays[drizdays[sequence[1:newdry]]],5] * 1.1
+          newscen[newwetdays[drizdays[sequence[1:newdry]]],5]   <- 
+            newscen[newwetdays[drizdays[sequence[1:newdry]]],5] * 1.1
         }
         newwetdays  <- thismonth[newscen[thismonth,col] > 0]
       }
@@ -680,7 +732,8 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
               newscen[thismonth[cloudydays[newwetcandidates]],col]  <- 0.3
               
               ##  Reduce radiation on new rain days by 10% following Mearns et al., 1996
-              newscen[thismonth[cloudydays[newwetcandidates]],5]  <- newscen[thismonth[cloudydays[newwetcandidates]],5] * 0.9
+              newscen[thismonth[cloudydays[newwetcandidates]],5]  <- 
+                newscen[thismonth[cloudydays[newwetcandidates]],5] * 0.9
             }
           } else {
             
@@ -689,7 +742,8 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
               newscen[thismonth[cloudydays[newwetcandidates[sequence[1:newwet]]]],col]  <- 0.3
               
               ##  Reduce radiation on new rain days by 10% following Mearns et al., 1996
-              newscen[thismonth[cloudydays[newwetcandidates[sequence[1:newwet]]]],5]    <- newscen[thismonth[cloudydays[newwetcandidates[sequence[1:newwet]]]],5] * 0.9
+              newscen[thismonth[cloudydays[newwetcandidates[sequence[1:newwet]]]],5]    <- 
+                newscen[thismonth[cloudydays[newwetcandidates[sequence[1:newwet]]]],5] * 0.9
             }
           }
           newwetdays  <- thismonth[newscen[thismonth,col] > 0]
@@ -701,9 +755,12 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
       cdfvect       <- seq(0,1000,0.1)
       cdfvect2      <- seq(-0.05,1000.05,0.1)
       startscen     <- newscen
-      truestartcdf  <- 1/nnewwetdays[mm] * cumsum(hist(startscen[newwetdays,col], cdfvect2, plot = FALSE)$counts)
-      truebasecdf   <- 1/nbasewetdays * cumsum(hist(base[basewetdays,col], cdfvect2, plot = FALSE)$counts)
-      truenewcdf    <- 1/nnewwetdays[mm] * cumsum(hist(newscen[newwetdays,col],cdfvect2, plot = FALSE)$counts)
+      truestartcdf  <- 1/nnewwetdays[mm] * cumsum(hist(startscen[newwetdays,col], cdfvect2,
+                                                       plot = FALSE)$counts)
+      truebasecdf   <- 1/nbasewetdays    * cumsum(hist(base[basewetdays,col], cdfvect2,
+                                                       plot = FALSE)$counts)
+      truenewcdf    <- 1/nnewwetdays[mm] * cumsum(hist(newscen[newwetdays,col],cdfvect2,
+                                                       plot = FALSE)$counts)
       
       ##  Initialize as missing for months too dry for gamma distribution
       startcdf      <- cdfvect*NaN
@@ -713,7 +770,7 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
       if (!is.nan(basealpha)) {
         
         ##  Error handling optimization
-        test.fit1 <- try(suppressWarnings(gammastart  <- fitdistr(startscen[newwetdays,col],dgamma, start=list(shape = startalpha, rate = 1/startbeta), lower=0.001)), silent = TRUE)
+        test.fit1 <- try(suppressWarnings(gammastart  <- fitdistr(startscen[newwetdays,col], dgamma, start=list(shape = startalpha, rate = 1/startbeta), lower=0.001)), silent = TRUE)
         if (class(test.fit1) == 'try-error') {
           test.fit2 <- try(suppressWarnings(gammastart  <- fitdistr(startscen[newwetdays,col],dgamma, start=list(shape = 1, rate = 0.1), lower=0.001)), silent = TRUE)
           if (class(test.fit2) == 'try-error') {
@@ -721,8 +778,8 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
             if (class(test.fit3) == 'try-error') loop.test[5]  <- 1
           }
         }
-                                  
-        if (loop.test[5] == 1) break
+        
+        if (loop.test[5] == 1) next
         
         ##  Re-calculate base cdf with new starting point now that the # of wet days has changed
         startalpha  <- as.numeric(gammastart$estimate[1])
@@ -730,10 +787,6 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
         startcdf    <- pgamma(cdfvect, startalpha,    1/startbeta)
         basecdf     <- pgamma(cdfvect, basealpha,     1/basebeta)
         newcdf      <- pgamma(cdfvect, newalpha[mm],  1/newbeta[mm])
-        
-        ##  Initially move directly with no spread (1:1)
-        ##  Spread for rainfall is a percentage of the imposed value
-        spread      <- 0
         
         ##  Sort rainy days by rainfall from starting scenario after wet day adjustment
         ranklist    <- sort(startscen[newwetdays,col], decreasing = TRUE)
@@ -749,7 +802,9 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
       ##   enough wet days
       meanerrfact   <- newmu[mm,col]/mean(newscen[thismonth,col])
       
-#         cat('Target: ', as.character(newmu[mm,col]), '    Start: ', as.character(mean(newscen[thismonth,col])), '    Revised: ', as.character(mean(newscen[thismonth,col]*meanerrfact)), '\n')
+      #     cat('Target: ', as.character(newmu[mm,col]),
+      #         '    Start: ',   as.character(mean(newscen[thismonth,col])),
+      #         '    Revised: ', as.character(mean(newscen[thismonth,col]*meanerrfact)), '\n')
       
       newscen[thismonth,col]  <- newscen[thismonth,col]*meanerrfact
       
@@ -760,7 +815,7 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
       ##  Check for initial goodness of fit in future period
       if (!is.nan(basealpha)) {
         
-        ##  Error handling optimization
+        ##  Error handling optimization          
         test.fit1 <- try(gg  <- suppressWarnings(fitdistr(newscen[newwetdays,col],dgamma, start=list(shape = startalpha, rate = 1/startbeta), lower=0.001)), silent = TRUE)
         if (class(test.fit1) == 'try-error') {
           test.fit2 <- try(gg  <- suppressWarnings(fitdistr(newscen[newwetdays,col],dgamma, start=list(shape = 1, rate = 0.1), lower=0.001)), silent = TRUE)
@@ -770,170 +825,231 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
           }
         }
         
-        if (loop.test[5] == 1) break
+        if (loop.test[5] == 1) next
         
         alphaerr    <- abs(as.numeric(gg$estimate[1])/newalpha[mm] - 1)
         betaerr     <- abs((1/as.numeric(gg$estimate[2]))/newbeta[mm] - 1)
       }
       
-      ##  Good fit if mean is within 0.1 mm/day and gamma parameters are within 0.2% of desired
-      meanfitstandard [mm,col]  <- 0.05
-      alphafitstandard[mm]      <- 0.002
-      betafitstandard [mm]      <- 0.002
+      ##  Initially move directly with no spread (1:1)
+      ##  Spread for rainfall is a percentage of the imposed value
+      spread      <- 0
       
-#         cat('New Month = ', month.name[mm], '\n     Mean error  = ', as.character(meanerr), '\n     Alpha error = ', as.character(100*alphaerr), '\n     Beta error  = ', as.character(100*betaerr), '\n')
+      ##  Reset loop counter for while loop
+      loop.test[1]  <- 0
       
-      while (( (meanerr  > meanfitstandard[mm,col]) || (alphaerr > alphafitstandard[mm]) || (betaerr  > betafitstandard[mm]))   &&   (monthfailed == 0)) {
+      while (loop.test[1] < 3 && loop.test[4] == mm) {
+        loop.test[1]  <- loop.test[1] + 1
+        loop.test[5]  <- 0
+#         cat('\n', loop.test)
         
-#             cat('New Month = ', month.name[mm], '\n     Mean error  = ', as.character(meanerr), '\n     Alpha error = ', as.character(100*alphaerr), '\n     Beta error  = ', as.character(100*betaerr), '\n')
+        ##  Good fit if mean is within 0.1 mm/day and gamma parameters are within 0.2% of desired
+        meanfitstandard [mm,col]  <- 0.05
+        alphafitstandard[mm]      <- 0.002
+        betafitstandard [mm]      <- 0.002
         
-        ##  Find new value in ranked list
-        ii  <- 1
+        ##  Reset newscen
+        newscen[thismonth,col] <- startscen[thismonth,col]
         
-        while (ii < (length(ranklist)+1)) {
-          thisval <- ranklist[ii]
+        while (( (meanerr  > meanfitstandard[mm,col]) ||
+                   (alphaerr > alphafitstandard[mm])  ||
+                   (betaerr  > betafitstandard[mm]))  ) {
           
-          ##  Find shift in value corresponding to this percentile in both cdfs
-          startprctile  <- startcdf[which.min(abs(cdfvect-thisval))]
-          newvalue      <- cdfvect[which.min(abs(newcdf-startprctile))]
-          delt          <- newvalue-thisval
+          ##  Find new value in ranked list
+          ii  <- 1
           
-          ##  Find all occurrances with same value    -- this could be more efficient
-          while ((ii < length(ranklist)+1) && (ranklist[ii] == thisval))    ii   <- ii + 1
-          
-          thischunk     <- which(startscen[thismonth,col] == thisval)
-          
-          ##  Now adjust each of these members randomly to new location
-          ##  Assign according to random sequence and from center out in the spread
-          sequence      <- sample(length(thischunk))
-          
-          if (length(thischunk) > 0) {
-            for (jj in 1:length(thischunk)) {
-              origloc               <- thismonth[thischunk[sequence[jj]]]
-              #newscen[origloc,col]  <- (thisval+delt) + (thisval+delt)*spread*rnorm(1)
-              rand.num              <- rnorm(1)
-              
-              if (abs(rand.num) > 2)   rand.num  <- abs(rand.num*2)/rand.num
-              
-              newscen[origloc,col] <- thisval + delt + (delt*spread*rand.num)
-              
-              if (newscen[origloc,col] < 0.1)       newscen[origloc,col]  <- 0.1
-              
-#                 cat('\nthisval = ', as.character(thisval),'\t\t\t\tdelt =', as.character(round(delt*100)/100),'\t\t\t\trand =', as.character(round(100*rand.num)/100),'\t\t\t\tspread =', as.character(round(100*spread)/100),'\t\t\t\tnewval =', as.character(round(100*newscen[origloc,col])/100))
-            }
-          }
-        }
-        
-        ##  Make sure future period monthly means are correct
-        meanerrfact     <- newmu[mm,col]/mean(newscen[thismonth,col])
-        
-#           cat('Target: ', as.character(newmu[mm,col]), '    Start: ', as.character(mean(newscen[thismonth,col])), '    Revised: ', as.character(mean(newscen[thismonth,col]*meanerrfact)), '\n')
-        
-        newscen[thismonth,col]  <- newscen[thismonth,col]*meanerrfact
-        
-        ##  Check for initial goodness of fit in future period (newscen begins = startcdf != base)
-        truenewcdf  <- 1/nnewwetdays[mm] * cumsum(hist(newscen[newwetdays,col],cdfvect2, plot = FALSE)$counts)
-        meanerr     <- abs(mean(newscen[thismonth,col]) - newmu[mm,col])
-        alphaerr    <- 0          ## no gamma error if distribution can't be fit
-        betaerr     <- 0          ## no gamma error if distribution can't be fit
-        
-        if (!is.nan(basealpha)) {
-          
-          ##  Error handling optimization
-          test.fit1 <- try(suppressWarnings(gg  <- fitdistr(newscen[newwetdays,col],dgamma, start=list(shape = startalpha, rate = 1/startbeta), lower=0.001)), silent = TRUE)
-          if (class(test.fit1) == 'try-error') {
-            test.fit2 <- try(suppressWarnings(gg  <- fitdistr(newscen[newwetdays,col],dgamma, start=list(shape = 1, rate = 0.1), lower=0.001)), silent = TRUE)
-            if (class(test.fit2) == 'try-error') {
-              test.fit3 <- try(suppressWarnings(gg  <- fitdistr(newscen[newwetdays,col], 'gamma')), silent = TRUE)
-              if (class(test.fit3) == 'try-error') loop.test[5]  <- 1
+          while (ii < (length(ranklist)+1)) {
+            thisval <- ranklist[ii]
+            
+            ##  Find shift in value corresponding to this percentile in both cdfs
+            startprctile  <- startcdf[which.min(abs(cdfvect-thisval))]
+            newvalue      <- cdfvect[which.min(abs(newcdf-startprctile))]
+            delt          <- newvalue-thisval
+            
+            ##  Find all occurrances with same value
+            while ((ii < length(ranklist)+1) && (ranklist[ii] == thisval))    ii   <- ii + 1
+            
+            thischunk     <- which(startscen[thismonth,col] == thisval)
+            
+            ##  Now adjust each of these members randomly to new location
+            ##  Assign according to random sequence and from center out in the spread
+            sequence      <- sample(length(thischunk))
+            
+            if (length(thischunk) > 0) {
+              for (jj in 1:length(thischunk)) {
+                origloc               <- thismonth[thischunk[sequence[jj]]]
+#                 newscen[origloc,col]  <- (thisval+delt) + (thisval+delt)*spread*rnorm(1)
+                rand.num              <- rnorm(1)
+                
+                if (abs(rand.num) > 2)   rand.num  <- abs(rand.num*2)/rand.num
+                
+                newscen[origloc,col]  <- thisval + delt + (delt*spread*rand.num)
+                
+                if (newscen[origloc,col] < 0.1)       newscen[origloc,col]  <- 0.1
+                
+#                 cat('\nthisval = ', as.character(thisval),'\t\t\t\tdelt =',
+#                     as.character(round(delt*100)/100),'\t\t\t\trand =',
+#                     as.character(round(100*rand.num)/100),'\t\t\t\tspread =',
+#                     as.character(round(100*spread)/100),'\t\t\t\tnewval =',
+#                     as.character(round(100*newscen[origloc,col])/100))
+              }
             }
           }
           
-          if (loop.test[5] == 1) break
+          ##  Make sure future period monthly means are correct
+          meanerrfact     <- newmu[mm,col]/mean(newscen[thismonth,col])
           
-          alphaerr  <- abs(as.numeric(gg$estimate[1])/newalpha[mm] - 1)
-          betaerr   <- abs((1/as.numeric(gg$estimate[2]))/newbeta[mm] - 1)
+#           cat('Target: ',  as.character(newmu[mm,col]),
+#               '    Start: ', as.character(mean(newscen[thismonth,col])),
+#               '    Revised: ', as.character(mean(newscen[thismonth,col]*meanerrfact)), '\n')
+          
+          newscen[thismonth,col]  <- newscen[thismonth,col]*meanerrfact
+          
+          ##  Check for initial goodness of fit in future period (newscen begins = startcdf != base)
+          truenewcdf  <- 1/nnewwetdays[mm] * cumsum(hist(newscen[newwetdays,col],cdfvect2,
+                                                         plot = FALSE)$counts)
+          meanerr     <- abs(mean(newscen[thismonth,col]) - newmu[mm,col])
+          alphaerr    <- 0          ## no gamma error if distribution can't be fit
+          betaerr     <- 0          ## no gamma error if distribution can't be fit
+          
+          if (!is.nan(basealpha)) {
+            
+            ##  Error handling optimization
+            test.fit1 <- try(suppressWarnings(gg  <- fitdistr(newscen[newwetdays,col],dgamma, start=list(shape = startalpha, rate = 1/startbeta), lower=0.001)), silent = TRUE)
+            if (class(test.fit1) == 'try-error') {
+              test.fit2 <- try(suppressWarnings(gg  <- fitdistr(newscen[newwetdays,col],dgamma, start=list(shape = 1, rate = 0.1), lower=0.001)), silent = TRUE)
+              if (class(test.fit2) == 'try-error') {
+                test.fit3 <- try(suppressWarnings(gg  <- fitdistr(newscen[newwetdays,col], 'gamma')), silent = TRUE)
+                if (class(test.fit3) == 'try-error') loop.test[5]  <- 1
+              }
+            }
+            
+            if (loop.test[5] == 1) next
+            
+            alphaerr  <- abs(as.numeric(gg$estimate[1])/newalpha[mm] - 1)
+            betaerr   <- abs((1/as.numeric(gg$estimate[2]))/newbeta[mm] - 1)
+          }
+          
+#           cat(sprintf('%10s%5.2f%30s%7.2f%25s%7.2f%25s%7.2f%30s%7.2f%25s%7.2f%25s%7.2f%s',
+#                       '\nspread = ', spread,
+#                       '\n     Mean Error         = ',   meanerr,
+#                       'Alpha Error        = ',  alphaerr*100,
+#                       'Beta Error         = ',   betaerr*100,
+#                       '\n     Mean Fit Standard  = ',   meanfitstandard[mm,col],
+#                       'Alpha Fit Standard = ',  alphafitstandard[mm]*100,
+#                       'Beta Fit Standard  = ',   betafitstandard[mm]*100, '\n'))
+
+          
+          spread    <- spread + 0.05  ##  Increase spread for next round of cdf casting
+          
+          if (spread > 0.2) {         ##  Revise standard for fit (if >20% shift/random standard 
+                                      ##    deviation is necessary)
+            spread  <- 0
+            
+            if (meanerr  > meanfitstandard[mm,col]) {
+              meanfitstandard[mm,col] <- meanfitstandard[mm,col] + 0.05
+              
+            #               cat('\n  Mean Fit Standard for', month.name[mm], 'set to',
+            #                   as.character(meanfitstandard[mm,col]))
+            }
+            
+            if (alphaerr > alphafitstandard[mm]) {
+              alphafitstandard[mm] <- alphafitstandard[mm] + 0.005
+              #                 cat('\n Alpha Fit Standard for ', month.name[mm], ' set to ',
+              #                     as.character(100*alphafitstandard[mm]), sep='')
+            }
+            
+            if (betaerr  > betafitstandard[mm]) {
+              betafitstandard[mm] <- betafitstandard[mm] + 0.005
+              #               cat('\n  Beta Fit Standard for ', month.name[mm], ' set to ',
+              #                   as.character(100*betafitstandard[mm]), sep='')
+            }
+            
+            if((meanfitstandard[mm,col] > 0.3) ||
+                 (alphafitstandard[mm]  > 0.075) ||
+                 (betafitstandard[mm]   > 0.075)) {
+              
+#               if (loop.test[1] == 1) cat('\n  Fit Standard exceeded on first attempt in month of ', month.name[mm],'.\n\n', sep='')
+#               
+#               if (loop.test[1] == 2) cat('\n  Fit Standard exceeded on second attempt in month of ', month.name[mm],'.\n\n', sep='')
+              
+              
+              ##  Reset newscen
+              newscen[thismonth,col] <- startscen[thismonth,col]
+              
+              loop.test[5]  <- 1
+            }
+            
+            if (loop.test[5] == 1) break
+            
+            ##  To be successful at new fit standard, make sure you give a chance for tighter spread
+            meanerr   <- 1234 
+            alphaerr  <- 1234
+            betaerr   <- 1234
+          }
+          
+        }                       ##  Large while loop for Precip
+        
+        if (loop.test[5] != 1) {
+          loop.test[4] <- loop.test[4] + 1
+          loop.test[1] <- 0
+          
+#           cat('\n', month.name[mm], ' complete\n\n', sep='')
+          
+          next
+          
         }
         
-#           cat('New Month = ', month.name[mm], '\n     Mean error  = ', as.character(meanerr), '\n     Alpha error = ', as.character(100*alphaerr), '\n     Beta error  = ', as.character(100*betaerr), '\n')
-        
-        spread    <- spread + 0.05  ##  Increase spread for next round of cdf casting
-        
-        if (spread > 0.2) {         ##  Revise standard for fit (if >20% shift/random standard 
-                                    ##    deviation is necessary)
-          spread  <- 0
+        if (loop.test[1]>2 && loop.test[5] != 0) {
+          newscen[thismonth,8] <- startscen[thismonth,col]*(newmu[mm,col]/
+                                                              mean(startscen[thismonth,col]))
           
-          if (meanerr  > meanfitstandard[mm,col]) {
-            meanfitstandard[mm,col] <- meanfitstandard[mm,col] + 0.05
-#               cat('meanfitstandard for', month.name[mm], 'set to', as.character(meanfitstandard[mm,col]), '\n')
-          }
+          cat(paste('Failed to shift mean and variability of ', as.character(outfile), ' in ', month.name[mm], ' for Precipitation.  Applied mean shift to precipitation future scenario without maintaining parameters of baseline distribution.\n', sep=''))
           
-          if (alphaerr > alphafitstandard[mm]) {
-            alphafitstandard[mm] <- alphafitstandard[mm] + 0.005
-#               cat('alphafitstandard for ', month.name[mm], ' set to ', as.character(100*alphafitstandard[mm]),'%\n', sep='')
-          }
+          loop.test[4] <- loop.test[4] + 1
+          loop.test[1] <- 0
           
-          if (betaerr  > betafitstandard[mm]) {
-            betafitstandard[mm] <- betafitstandard[mm] + 0.005
-#               cat('betafitstandard for ', month.name[mm], ' set to ', as.character(100*betafitstandard[mm]),'%\n', sep='')
-          }
+          next
           
-          if((meanfitstandard[mm,col] > 0.3) || (alphafitstandard[mm] > 0.075) || (betafitstandard[mm] > 0.075)) {
-            monthfailed             <- 1
-            if (loop.test[1] == 2) newscen[thismonth,col]  <- -99
-            cat('  POOR FIT FOR ', month.name[mm], ' (', as.character(mm),') in column = ', as.character(col),' (Precipitation)\n', sep='')
-            
-            cat('  Meanerr =', as.character(meanerr), '     Alphaerr =', as.character(alphaerr), '     Betaerr =', as.character(betaerr),'\n')
-            
-            newscen[,8] <- base[,8]
-            
-            loop.test[5]  <- 1
-          }
-          if (loop.test[5] == 1) break
-          
-          ##  To be successful at new fit standard, make sure you give a chance for tighter spread
-          meanerr   <- 1234 
-          alphaerr  <- 1234
-          betaerr   <- 1234
         }
-      }                               ##  Large while loop for Precip
+        
+      }  ##  Loop to rerun (3x) if does not converge
       
-      if (loop.test[5] == 1) break
+    }  ##  Loop to rerun (3x) if does not converge
+    
+    ##  Precipitation Diagnostics
+    if (rundiag == mm || rundiag == 13) {
       
-      ##  Precipitation Diagnostics
-      if (rundiag == mm || rundiag == 13) {
-        
-        ##  Plot specified month time series
-        plot(newscen[thismonth,col], col = 'red', type = 'l', xlim = c(0,1000), ylim = c(-5,(ceiling(max(newscen[thismonth,col])/10)*10)))
-        lines(base[thismonth,col], col = 'blue')
-        title(main = paste('Time Series of', month.name[mm], 'Precipitation (Rain)'))
-        
-        ##  CDF of Precipitation Stretch
-        ##   Uncomment lines setEPS(), postscript(...), and dev.off() to export .eps
-        ##   Uncomment lines jpeg(...) and dev.off() to export as .jpeg
-        #     setEPS()
-        #     postscript(paste('PStretch_', month.name[mm], '.eps', sep=''), horizontal = FALSE, onefile = FALSE)
-        #     jpeg(filename = paste('PStretch_', month.name[mm], '.jpeg', sep=''), quality = 100)
-        
-        plot (cdfvect, truebasecdf, col = 'cyan', type = 'l', lwd = 2, xlim = c(-5,220), ylim = c(-0.05,1.05), xlab = expression(~degree~C), ylab = ' ')
-        lines(cdfvect, basecdf, col = 'blue', lwd = 2)
-        lines(cdfvect, truenewcdf, col = 'magenta', lwd = 2)
-        lines(cdfvect, newcdf, col = 'red', lwd = 2)
-        #     lines(cdfvect, startcdf, col = 'green', lwd = 2)
-        #     lines(cdfvect, truestartcdf, col = 'black', lwd = 2)
-        par(ps = 15)
-        title(main = paste('CDF of', month.name[mm], 'Precipitation Events (Rain)'))
-        legend(50,0.5, legend = c('1980-2010 Baseline Observations \n', 'Baseline Theoretical Distribution \n', 'A2 Mid-Century Scenario \n', 'A2 Mid-Century Theoretical Distribution \n'),col = c('cyan', 'blue', 'magenta', 'red'), lty = 1, cex = 0.7, bty = 'n', y.intersp = 0.5, seg.len = 1)
-        
-        #     dev.off()
-      }               ##  Diagnostic loop
-      if (mm == 12)  loop.test[4] <- 1   ##  Completion validation
-    }                                                         ##  Month loop for Precip
-  }   ##  Loop to rerun (3x) if does not converge
+      ##  Plot specified month time series
+      plot(newscen[thismonth,col], col = 'red', type = 'l', xlim = c(0,1000), ylim = c(-5,(ceiling(max(newscen[thismonth,col])/10)*10)))
+      lines(base[thismonth,col], col = 'blue')
+      title(main = paste('Time Series of', month.name[mm], 'Precipitation (Rain)'))
+      
+      ##  CDF of Precipitation Stretch
+      ##   Uncomment lines setEPS(), postscript(...), and dev.off() to export .eps
+      ##   Uncomment lines jpeg(...) and dev.off() to export as .jpeg
+      #     setEPS()
+      #     postscript(paste('PStretch_', month.name[mm], '.eps', sep=''), horizontal = FALSE, onefile = FALSE)
+      #     jpeg(filename = paste('PStretch_', month.name[mm], '.jpeg', sep=''), quality = 100)
+      
+      plot (cdfvect, truebasecdf, col = 'cyan', type = 'l', lwd = 2, xlim = c(-5,220), ylim = c(-0.05,1.05), xlab = expression(~degree~C), ylab = ' ')
+      lines(cdfvect, basecdf, col = 'blue', lwd = 2)
+      lines(cdfvect, truenewcdf, col = 'magenta', lwd = 2)
+      lines(cdfvect, newcdf, col = 'red', lwd = 2)
+      #     lines(cdfvect, startcdf, col = 'green', lwd = 2)
+      #     lines(cdfvect, truestartcdf, col = 'black', lwd = 2)
+      par(ps = 15)
+      title(main = paste('CDF of', month.name[mm], 'Precipitation Events (Rain)'))
+      legend(50,0.5, legend = c('1980-2010 Baseline Observations \n', 'Baseline Theoretical Distribution \n', 'A2 Mid-Century Scenario \n', 'A2 Mid-Century Theoretical Distribution \n'),col = c('cyan', 'blue', 'magenta', 'red'), lty = 1, cex = 0.7, bty = 'n', y.intersp = 0.5, seg.len = 1)
+      
+      #     dev.off()
+    }               ##  Diagnostic loop
+    
+  }  ##  Month loop for Precip
   
   ##  Test for successful completion of Precipitation Loop
-  if (loop.test[4] != 1) {
-    stop(paste('Failed to shift mean and variability of ', as.character(outfile), ' in ', month.name[mm], ' for Precipitation.\n\t\t\t\t\t\t\tDid not produce ',as.character(outfile), '.AgMIP.', sep=''))
+  if (loop.test[4] != 13) {
+    stop(paste('Failed to shift mean and variability of ', as.character(outfile), ' in ', month.name[mm], ' for Precipitation.\n\t\t\t\t\t\t\tDid not produce ',as.character(outfile), '.AgMIP.', sep=''))   
   }  
   
   ###--------------------------------------------------------------------------------------------###
@@ -993,10 +1109,11 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
   ######################################  Print .AgMIP file  #######################################  
   ###--------------------------------------------------------------------------------------------###
   
-  if (loop.test[2] == 1 && loop.test[3] == 1 && loop.test[4] == 1) { ## Necessary?
+  if (loop.test[2] == 1 && loop.test[3] == 1 && loop.test[4] == 13) { ## Necessary?
     
     ##  Remove all variables except those needed to print file
-    rm(list=setdiff(ls(), c('base', 'outfile', 'futloc','headerplus', 'baseinfo', 'newscen', 'ddate')))
+    rm(list=setdiff(ls(), c('base', 'outfile', 'futloc','headerplus', 'baseinfo', 'newscen',
+                            'ddate')))
     invisible(gc())
     
     ##  Calculate Tave and Tamp
@@ -1004,7 +1121,8 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
     Tmonth  <- matrix(NaN,12)
     
     for (thismonth in 1:12){
-      Tmonth[thismonth] <- mean(c(newscen[which(newscen[,3]==thismonth),6],newscen[which(newscen[,3]==thismonth),7]))
+      Tmonth[thismonth] <- mean(c(newscen[which(newscen[,3] == thismonth),6], 
+                                  newscen[which(newscen[,3]==thismonth),7]))
     }
     
     Tamp    <- (max(Tmonth)-min(Tmonth))/2
@@ -1025,12 +1143,25 @@ agmip_simple_mandv  <- function(base, outfile, futloc, headerplus, baseinfo, std
     cat(sprintf('%54s', '@ INSI      LAT     LONG  ELEV   TAV   AMP REFHT WNDHT'),'\n')
     
     ##  Don't forget to adjust reference height for temperature and winds
-    cat(sprintf('%6s%9.3f%9.3f%6.0f%6.1f%6.1f%6.1f%6.1f', baseinfo$V1, baseinfo$V2, baseinfo$V3, baseinfo$V4,Tave,Tamp,baseinfo$V7,baseinfo$V8),'\n')
+    cat(sprintf('%6s%9.3f%9.3f%6.0f%6.1f%6.1f%6.1f%6.1f', baseinfo$V1, baseinfo$V2,baseinfo$V3,
+                baseinfo$V4,Tave,Tamp,baseinfo$V7,baseinfo$V8),'\n')
     cat(sprintf('%s', '@DATE    YYYY  MM  DD  SRAD  TMAX  TMIN  RAIN  WIND  DEWP  VPRS  RHUM'),'\n')
     
     ##  And add the newly created data...
     for (dd in 1:length(ddate)){
-      cat(sprintf('%7s%6s%4s%4s%6.1f%6.1f%6.1f%6.1f%6.1f%6.1f%6.1f%6.0f\n',as.character(newscen[dd,1]),as.character(newscen[dd,2]),as.character(newscen[dd,3]),as.character(newscen[dd,4]),newscen[dd,5],newscen[dd,6],newscen[dd,7],newscen[dd,8],newscen[dd,9],newscen[dd,10],newscen[dd,11],newscen[dd,12]))
+      cat(sprintf('%7s%6s%4s%4s%6.1f%6.1f%6.1f%6.1f%6.1f%6.1f%6.1f%6.0f\n',
+                  as.character(newscen[dd,1]),
+                  as.character(newscen[dd,2]),
+                  as.character(newscen[dd,3]),
+                  as.character(newscen[dd,4]),
+                  newscen[dd,5],
+                  newscen[dd,6],
+                  newscen[dd,7],
+                  newscen[dd,8],
+                  newscen[dd,9],
+                  newscen[dd,10],
+                  newscen[dd,11],
+                  newscen[dd,12]))
     }
     
     sink()

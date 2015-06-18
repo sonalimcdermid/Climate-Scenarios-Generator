@@ -10,6 +10,7 @@
 #    Updated for NaN rainfall               --  June 5, 2013 by Nicholas Hudson
 #    Updated to ensure Tmax > Tmin          --  July 16, 2013 by Nicholas Hudson
 #    Updated for Version 2.0 of the Guide   --  July 25, 2013 by Nicholas Hudson
+#    Updated to ensure Tmax is not = Tmin   --  October 24, 2013 by Nicholas Hudson
 #
 #     Author: Alex Ruane
 #   								alexander.c.ruane@nasa.gov
@@ -256,7 +257,7 @@ agmip_simple_delta <- function(base,deltloc,latlonloc,futloc,futname,baseinfo,ba
   
   ##  Check to ensure Tmax > Tmin
 	aa <- newscen[,3]-newscen[,4]
-	bb <- which(aa < 0)
+	bb <- which(aa <= 0)
 # 	cat('Number of Tmin > Tmax  =  ', as.character(length(bb)), '\n')
 	
 	if (length(bb) > 0){
