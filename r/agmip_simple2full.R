@@ -11,6 +11,7 @@
 #  THIS WAS FORMERLY acr_agmip005.R         --  May 24, 2013
 #    Updated to be used with the Guide for Running AgMIP Climate Scenario Generation Tools 
 #    Updated for Version 2.0 of the Guide   --  July 25, 2013 by Nicholas Hudson
+#    Updated to ensure Vprs >= 0.1          --  November 20, 2013 by N. Hudson
 #
 #     Author: Alex Ruane
 #   								alexander.c.ruane@nasa.gov
@@ -55,6 +56,9 @@ agmip_simple2full <- function(base, infile, outfile, headerplus, baseinfo) {
   
 	##  Calculate saturation vapor pressure from Tmax, Vprs = Rhum * es
   newfut[,11] <- (newfut[,12]/100) * eos * exp(Lv/Rv*(1/To - 1/(newfut[,6]+To)))
+  
+  ##  Add check to ensure Vprs >= 0.1
+  newfut[which(newfut[,11]<0.1),11] <- 0.1
   
   ##  Calculate Dew Point Temperatures
   newfut[,10] <- (1/((1/To)-(Rv/Lv) * log(newfut[,11]/eos)) - To)

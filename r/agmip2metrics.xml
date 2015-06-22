@@ -1,0 +1,92 @@
+<tool id="agmip2metric" name="Produce climate metrics for given .AgMIP files" version="1.0.0">
+  <description>Produce a record of climate metrics in a given season for .AgMIP files</description>
+  <requirements>
+     <requirement type="package">agmip_sce_generator</requirement>
+     <requirement type="package">R</requirement>
+  </requirements>
+  <command>agmip2metric.sh $inputfile $seasonstart $seasonend $climvariable $analysis.type $analysis.refer $analysis.operator $csvoutput</command>
+  <inputs>
+        <param name="inputfile" type="data" format="zip" label="Input .AgMIP Climate files (zipped)" />
+        <param name="seasonstart" type="text" label="The Julian starting day number in a 365 day year" value="244" />
+        <param name="seasonend" type="text" value="273" label="The Julian ending day number"  />
+        <param name="climvariable" type="select" label="Select climate variable">
+            <option selected="yes" value="5">Solar radiation(MJ/m2/d)</option>
+            <option value="6">Maximum temperature(degree C)</option>
+            <option value="7">Minimum temperature(degree C)</option>
+            <option value="8">Precipitation(mm)</option>
+            <option value="9">Wind speed(m/s)</option>
+            <option value="10">Dewpoint temperature (degree C)</option>
+            <option value="11">Vapor press(kPa)</option>
+            <option value="12">Relative humidity(%)</option>
+            <option value="13">Average temperature(degree C)</option>
+        </param>
+        <conditional name="analysis">
+          <param name="type" type="select" label="Select analysis type">
+              <option selected="yes" value="mean">The average of the selected climate variable</option>
+              <option value="max">The maximum of the selected climate variable</option>
+              <option value="min">The minimum of the selected climate variable</option>
+              <option value="count">The number of days that is greater/less than the threshold value</option>
+              <option value="exceedance">Accumlation of excess above the threshold value</option>
+              <option value="meanconsecutivedays">The mean number of consecutive days that is greater/less than threshold value</option>
+              <option value="maxconsecutivedays">The maximum number of consecutive days that is greater/less than threshold value</option>
+          </param>
+         <when value="mean">
+		<param name="refer" type="hidden" value="0" />
+		<param name="operator" type="hidden" value="1" />
+         </when>
+         <when value="max">
+		<param name="refer" type="hidden" value="0" />
+		<param name="operator" type="hidden" value="1" />
+         </when>
+         <when value="min">
+		<param name="refer" type="hidden" value="0" />
+		<param name="operator" type="hidden" value="1" />
+         </when>
+         <when value="count">
+		<param name="refer" type="text" value="0" label="Specify the threshold value" />
+		<param name="operator" type="select" lable="Greater or less">
+		    <option selected="yes" value="1">Greater</option>
+ 		    <option value="-1">Less</option>
+		</param>
+         </when>
+         <when value="exceedance">
+		<param name="refer" type="text" value="0" label="Specify the threshold value" />
+		<param name="operator" type="select" lable="Greater or less">
+		    <option selected="yes" value="1">Greater</option>
+ 		    <option value="-1">Less</option>
+		</param>
+         </when>
+         <when value="meanconsecutivedays">
+		<param name="refer" type="text" value="0" label="Specify the threshold value" />
+		<param name="operator" type="select" lable="Greater or less">
+		    <option selected="yes" value="1">Greater</option>
+ 		    <option value="-1">Less</option>
+		</param>
+         </when>
+         <when value="maxconsecutivedays">
+		<param name="refer" type="text" value="0" label="Specify the threshold value" />
+		<param name="operator" type="select" lable="Greater or less">
+		    <option selected="yes" value="1">Greater</option>
+ 		    <option value="-1">Less</option>
+		</param>
+         </when>
+        </conditional>
+
+</inputs>
+
+<outputs>
+    <data format="csv" name="csvoutput" label=".csv metrics output" />
+</outputs>
+
+  <help>
+
+**What it does**
+
+This tool produces a record of climate metrics in a given season for given .AgMIP files (zipped).  
+
+This tool uses R scripts written by Alex Ruane (alexander.c.ruane@nasa.gov)
+
+
+  </help>
+
+</tool>

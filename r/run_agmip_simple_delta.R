@@ -44,10 +44,11 @@
 ###----------------------------------------------------------------------------------------------###
 ####################################################################################################
 
+run_agmip_simple_delta <- function(basefile,rootDir,dataDir,gcms,rcps,decs) {
 ##  Input variables
 ###  These should be the only variables you will have to change for running the script for 
 ###   another file as long as all files are located in the correct folders
-basefile  	<- 'USAM0XXX'             ##  .AgMIP base file name in ~\\R\\data\\Climate\\Historical
+#basefile  	<- 'USAM0XXX'             ##  .AgMIP base file name in ~\\R\\data\\Climate\\Historical
 basedecs 	<- c(1980, 2009)          ##  Time scale of basefile
 
 ###  run.gcms sets the GCM scenario loop.  Currently set to run all GCMs (1:20) where
@@ -56,19 +57,20 @@ basedecs 	<- c(1980, 2009)          ##  Time scale of basefile
 ###    9 = GGFDL-ESM2M,   10 = HadGEM2-CC,    11 = HadGEM2-ES,      12 = inmcm4,
 ###   13 = IPSL-CM5A-LR,  14 = IPSL-CM5A-MR,  15 = MIROC5,          16 = MIROC-ESM,
 ###   17 = MPI-ESM-LR,    18 = MPI-ESM-MR,    19 = MRI-CGCM3,       20 = NorESM1-M
-run.gcms    <- 1:20
+run.gcms    <- as.numeric(unlist(strsplit(gcms,','))) #1:20
+
 
 ###  run.rcps sets the RCP scenario loop.  Currently set to run RCP 4.5 (3) and RCP 8.5 (5) where
 ###    1 = historical, 2 = RCP 2.6, 3 = RCP 4.5, 4 = RCP 6.0, 5 = RCP 8.5
-run.rcps    <- c(3,5)
+run.rcps    <- as.numeric(unlist(strsplit(rcps,','))) #c(3,5)
 
 ###  run.decs sets the Time scenario loop.  Currently set to run all time periods (1:3)
 ###    where 1 = Near-term (2010-2039), 2 = Mid-Century (2040-2069), 3 = End-of-Century (2070-2099)
-run.decs    <- 1:3
+run.decs    <- as.numeric(unlist(strsplit(decs,','))) #1:3
 
 ###  You must enter the location of the R folder into rootDir below using \\ between folders.
 ###  For example, 'C:\\Users\\Your Name Here\\Desktop\\R\\'
-rootDir     <- '*** your directory here ***\\R\\'           ##  <- Enter location here <-
+## rootDir     <- '*** your directory here ***\\R\\'           ##  <- Enter location here <-
 
 ###----------------------------------------------------------------------------------------------###
 ###############  You should not have to adjust any of the variables below this line  ###############
@@ -80,14 +82,23 @@ lapply(library, require, character.only = T)
 rm(library)
 
 ##  Set directory paths
-baseloc     <- paste(rootDir, 'data\\Climate\\Historical\\', sep='')
-futloc      <- paste(rootDir, 'data\\Climate\\Simplescenario\\', sep='')
-deltloc     <- paste(rootDir, 'data\\CMIP5\\climfiles\\', sep='')
-latlonloc   <- paste(rootDir, 'data\\CMIP5\\latlon\\', sep='')
+#baseloc     <- paste(rootDir, 'data\\Climate\\Historical\\', sep='')
+#futloc      <- paste(rootDir, 'data\\Climate\\Simplescenario\\', sep='')
+#deltloc     <- paste(rootDir, 'data\\CMIP5\\climfiles\\', sep='')
+#latlonloc   <- paste(rootDir, 'data\\CMIP5\\latlon\\', sep='')
+
+baseloc     <- paste(rootDir, '/input/', sep='')
+futloc      <- paste(rootDir, '/output1/', sep='')
+deltloc     <- paste(dataDir, '/CMIP5/climfiles/', sep='')
+latlonloc   <- paste(dataDir, '/CMIP5/latlon/', sep='')
 
 ##  Source scripts
-source(paste(rootDir, 'r\\acr_findspot.R', sep=''))
-source(paste(rootDir, 'r\\agmip_simple_delta.R', sep=''))
+
+
+#source(paste(rootDir, '/acr_findspot.R', sep=''))
+#source(paste(rootDir, '/agmip_simple_delta.R', sep=''))
+source('/mnt/galaxyTools/agmip_sce_generator/1.0.0/acr_findspot.R')
+source('/mnt/galaxyTools/agmip_sce_generator/1.0.0/agmip_simple_delta.R')
 
 ##  Define variables for function loop
 baseinfo    <- read.table(paste(baseloc, basefile, '.AgMIP', sep=''), skip=3, nrows=1)
@@ -128,3 +139,14 @@ for (scendecs in run.decs) {
 endtime     <- Sys.time()
 cat('\nPrinted .AgMIP files to ', futloc, '\n\n', sep='')
 cat('***** Loop start time = ',format(starttime,'%H:%M:%S'), '\t*****\n***** Loop end time   = ',format(endtime,'%H:%M:%S'), '\t*****\n***** Loop run time   = ',round(as.numeric(endtime-starttime, units = 'mins'),digits = 0),' mins\t\t*****\n\n\n', sep='')
+}
+
+args<-commandArgs(trailingOnly=TRUE)
+basefile<-args[3]#'MEDI0XXX'
+rootDir<- args[1] #$PWD'/Users/weixiong/Development/face-it/RIA/AgMIP_Scenarios_Generator'
+dataDir<-args[2]
+gcms<- args[4]
+rcps<- args[5]
+decs<- args[6]
+run_agmip_simple_delta(basefile,rootDir,dataDir,gcms,rcps,decs)
+

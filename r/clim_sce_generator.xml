@@ -1,0 +1,63 @@
+<tool id="clim_sce_generator" name="Generate .AgMIP future climate scenarios" version="1.0.0">
+  <description>Generate .AgMIP future Climate Scenarios from GCM</description>
+  <requirements>
+     <requirement type="package">agmip_sce_generator</requirement>
+     <requirement type="package">R</requirement>
+  </requirements>
+  <command>clim_sce_generator.sh $baseclimate $futuresce $emission $period $method $agmipclimateoutput</command>
+  <inputs>
+        <param name="baseclimate" type="data" format="zip" label="Input .AgMIP Baseline Climate zip file" />
+        <param name="futuresce" type="select" display="checkboxes" multiple="true" label="Select Global Climate Model" separator=",">
+             <option value="1">A: ACCESS1-0</option>
+             <option value="2">B: bcc-csm1-1</option>
+             <option value="3">C: BNU-ESM</option>
+             <option value="4">D: CanESM2</option>
+             <option value="5">E: CCSM4</option>
+             <option value="6">F: CESM1-BGC</option>
+             <option value="7">G: CSIRO-Mk3-6-0</option>
+             <option value="8">H: GFDL-ESM2G</option>
+             <option value="9">I: GFDL-ESM2M</option>
+             <option value="10">J: HadGEM2-CC</option>
+             <option value="11">K: HadGEM2-ES</option>
+             <option value="12">L: inmcm4</option>
+             <option value="13">M: IPSL-CM5A-LR</option>
+             <option value="14">N: IPSL-CM5A-MR</option>
+             <option value="15">O: MIROC5</option>
+             <option value="16">P: MIROC-ESM</option>
+             <option value="17">Q: MPI-ESM-LR</option>
+             <option value="18">R: MPI-ESM-MR</option>
+             <option value="19">S: MRI-CGCM3</option>
+             <option value="20">T: NorESM1-M</option>
+        </param>
+
+       <param name="emission" type="select" display="checkboxes" multiple="true" label="Select greenhouse gases concentration pathway" separator=",">
+             <option value="3">RCP4.5</option>
+             <option value="5">RCP8.5</option>
+       </param>
+
+         <param name="period" type="select" display="checkboxes" multiple="true" label="Select time period" separator=",">
+             <option value="1">2020s (2010-2039 Near-term)</option>
+             <option value="2">2050s (2040-2069 Mid-Century)</option>
+             <option value="3">2080s (2070-2099 End-of-Century)</option>
+         </param>
+
+         <param name="method" type="select" label="Select generation method">
+             <option selected="yes" value="1">Simple Delta</option>
+             <option value="2">Mean and Variation</option>
+         </param>
+
+  </inputs>
+
+<outputs>
+    <data format="zip" name="agmipclimateoutput" label=".AgMIP Climate Scenario" />
+</outputs>
+
+  <help>
+**What it does**
+
+This tool generates climate scenarios for the given sites that indicated in the input .AgMIP files (zipped). The tool is able to generate multiple scenarios covering 20 GCMs, 2 greenhouse gas emission pathways, and 3 time periods, using two method (simple delta, mean and variation).
+
+This tool uses R scripts which written by Alex Ruane (alexander.c.ruane@nasa.gov)
+  </help>
+
+</tool>

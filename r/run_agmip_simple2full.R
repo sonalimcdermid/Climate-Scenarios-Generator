@@ -44,44 +44,45 @@
 #
 ###----------------------------------------------------------------------------------------------###
 ####################################################################################################
-
+run_agmip_simple2full <- function(basefile,rootDir,code,gcms,rcps,decs) {
 ## Input variables
 ### These should be the only variables you will have to change for running the script for 
 ###  another file as long as all files are located in the correct folders
-basefile    <- 'USAM0XXX'                 ##  .AgMIP basefile name in ~\\R\\data\\Climate\\Historical
-end.code    <- 'XA'                       ##  7th and 8th digit code of future scenario files to be
-                                          ##    changed. 1st-4th are determined by basefile, 5th
-                                          ##    by run.rcps and run.decs, and 6th by run.gcms
 
+#basefile    <- 'MEDI0XXX'                 ##  .AgMIP basefile name in ~\\R\\data\\Climate\\Historical
+end.code    <- paste(substr(basefile,7,7),code,sep='') #'XF'#'XA'                       ##  7th and 8th digit code of future scenario files to be
+                                          ##    changed. 1st-4th are determined by basefile, 5th
+                                          ##    by run.rcps and run.decs, and 6th by run.gcm
 ###  run.gcms sets the GCM scenario loop.  Currently set to run all GCMs (1:20) where
 ###    1 = ACCESS1-0,      2 = bcc-csm1-1,     3 = BNU-ESM,          4 = CanESM2,         
 ###    5 = CCSM4,          6 = CESM1-BGC,      7 = CSIRO-Mk3-6-0,    8 = GFDL-ESM2,
 ###    9 = GGFDL-ESM2M,   10 = HadGEM2-CC,    11 = HadGEM2-ES,      12 = inmcm4,
 ###   13 = IPSL-CM5A-LR,  14 = IPSL-CM5A-MR,  15 = MIROC5,          16 = MIROC-ESM,
 ###   17 = MPI-ESM-LR,    18 = MPI-ESM-MR,    19 = MRI-CGCM3,       20 = NorESM1-M
-run.gcms    <- 1:20
+run.gcms    <- as.numeric(unlist(strsplit(gcms,',')))#1:20
 
 ###  run.rcps sets the RCP scenario loop.  Currently set to run RCP 4.5 (3) and RCP 8.5 (5) where
 ###    1 = historical, 2 = RCP 2.6, 3 = RCP 4.5, 4 = RCP 6.0, 5 = RCP 8.5
-run.rcps    <- c(3,5)
+run.rcps    <- as.numeric(unlist(strsplit(rcps,',')))#c(3,5)
 
 ###  run.decs sets the Time scenario loop.  Currently set to run all time periods (1:3)
 ###    where 1 = Near-term (2010-2039), 2 = Mid-Century (2040-2069), 3 = End-of-Century (2070-2099)
-run.decs    <- 1:3
+run.decs    <- as.numeric(unlist(strsplit(decs,',')))#:3
 
 ### You must enter the location of the R folder into rootDir below using \\ between folders.
 ### For example, 'C:\\Users\\Your Name Here\\Desktop\\R\\'
-rootDir     <- '*** your directory here ***\\R\\'           ##  <- Enter location here <-
+#rootDir     <- '/Users/weixiong/Development/face-it/RIA/AgMIP_Scenarios_Generator/'           ##  <- Enter location here <- #'*** your directory here ***\\R\\'
 
 ###----------------------------------------------------------------------------------------------###
 ###############  You should not have to adjust any of the variables below this line  ###############
 ###----------------------------------------------------------------------------------------------###
 
 ##  Set directory paths
-baseloc     <- paste(rootDir, 'data\\Climate\\Historical\\', sep='')
+baseloc     <- paste(rootDir, '/input/', sep='')
 
 ##  Source scripts
-source(paste(rootDir, 'r\\agmip_simple2full.R', sep=''))
+source('/mnt/galaxyTools/agmip_sce_generator/1.0.0/agmip_simple2full.R')
+#source(paste(rootDir, 'r/agmip_simple2full.R', sep=''))
 
 ##  Define variables for function loop
 baseinfo    <- read.table(paste(baseloc, basefile, '.AgMIP', sep=''), skip=3, nrows=1)
@@ -101,7 +102,7 @@ if (substr(basefile,1,4) != baseinfo$V1) {
 ##  Run function loop
 starttime   <- Sys.time()
 cat('\n***** Loop start time = ',format(starttime,'%H:%M:%S'), '\t*****\n\n')
-cat('Printing full .AgMIP files to ', rootDir, 'data\\Climate\\Fullscenario\\ ...\n', sep='')
+cat('Printing full .AgMIP files to ', rootDir, '/output2/ ...\n', sep='')
 
 for (scendecs in run.decs) {
   futdecs       <- c(decscode[1,scendecs],decscode[2,scendecs])
@@ -112,8 +113,8 @@ for (scendecs in run.decs) {
     
     for (thisgcm in run.gcms) {
       filename    <- paste(baseinfo$V1, scencode[scendecs,rcp], gcmlist[thisgcm], end.code, sep ='')
-      infile      <- paste(rootDir, 'data\\Climate\\Simplescenario\\', filename, '.AgMIP', sep ='')
-      outfile     <- paste(rootDir, 'data\\Climate\\Fullscenario\\',   filename, '.AgMIP', sep ='')
+      infile      <- paste(rootDir, '/output1/', filename, '.AgMIP', sep ='')
+      outfile     <- paste(rootDir, '/output2/',   filename, '.AgMIP', sep ='')
       headerplus  <- paste(filename,' - baseline dates maintained for leap year consistency', sep ='')
       agmip_simple2full(base, infile, outfile, headerplus, baseinfo)
       cat('\t', filename, ' created\n', sep ='')
@@ -123,5 +124,14 @@ for (scendecs in run.decs) {
 }
 
 endtime     <- Sys.time()
-cat('\nPrinted full .AgMIP files to ', rootDir, 'data\\Climate\\Fullscenario\\ ...', '\n\n', sep='')
+cat('\nPrinted full .AgMIP files to ', rootDir, '/output2/ ...', '\n\n', sep='')
 cat('***** Loop start time = ',format(starttime,'%H:%M:%S'), '\t*****\n***** Loop end time   = ',format(endtime,'%H:%M:%S'), '\t*****\n***** Loop run time   = ',round(as.numeric(endtime-starttime, units = 'mins'),digits = 0),' mins\t\t*****\n\n\n', sep='')
+}
+args<-commandArgs(trailingOnly=TRUE)
+basefile<-args[2]#'MEDI0XXX'
+rootDir<- args[1] #$PWD'/Users/weixiong/Development/face-it/RIA/AgMIP_Scenarios_Generator'
+code<-args[3]
+gcms<- args[4]
+rcps<- args[5]
+decs<- args[6]
+run_agmip_simple2full(basefile,rootDir,code,gcms,rcps,decs)
