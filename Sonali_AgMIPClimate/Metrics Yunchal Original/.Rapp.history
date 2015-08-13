@@ -1,0 +1,38 @@
+decscode    <- matrix(c(2010,2039,2040,2069,2070,2099), ncol = 3)
+descode
+matrix(c(2010,2039,2040,2069,2070,2099), ncol = 3)
+matrix(c(26.222,24.806,24.160,22.725	,22.750,22.060,22.080,21.830,21.833,23.840,23.330,22.600,23.334,24.030,25.670,23.280,23.520,22.080,23.830,24.396), ncol=1)
+lat <- matrix(c(26.222,24.806,24.160,22.725	,22.750,22.060,22.080,21.830,21.833,23.840,23.330,22.600,23.334,24.030,25.670,23.280,23.520,22.080,23.830,24.396), ncol=1)
+lat
+c('MP01','MP02','MP03',	'MP04','MP05','MP06','MP07','MP08','MP09','MP10',MP11	MP12	MP13	MP14	MP15	MP16	MP17	MP18	MP19	MP20)
+c('MP01','MP02','MP03',	'MP04','MP05','MP06','MP07','MP08','MP09','MP10','MP11','MP12','MP13'	MP14	MP15	MP16	MP17	MP18	MP19	MP20)
+c('MP01','MP02','MP03',	'MP04','MP05','MP06','MP07','MP08','MP09','MP10','MP11','MP12','MP13','MP14','MP15','MP16','MP17','MP18','MP19','MP20')
+shortfil<-c('MP01','MP02','MP03',	'MP04','MP05','MP06','MP07','MP08','MP09','MP10','MP11','MP12','MP13','MP14','MP15','MP16','MP17','MP18','MP19','MP20')
+shorfil(1)
+shortfile <- c('MP01','MP02','MP03',	'MP04','MP05','MP06','MP07','MP08','MP09','MP10','MP11','MP12','MP13','MP14','MP15','MP16','MP17','MP18','MP19','MP20')
+shortfile(1)
+shortfile
+lat(1)
+lat[1]
+shortfile[1]
+shortfile 	<- 'INCO'
+shortfile
+load("/Users/sps246/Research/R/data/Climate/Historical/INCO0XXXsum8.RData")
+list.files(path="/Users/sps246/Research/R/data/Climate/Historical/", pattern="MP*.AgMIP", full.names=T, recursive=FALSE)
+list.files[1]
+load('R.matlb', 'R.utils')
+load('R.matlb' 'R.utils')
+library('R.matlb')
+load('R.matlab')
+library('R.matlab')
+library('R.utils')
+source("/Users/sps246/Research/R/r/run_agmip_simple_delta.R")
+source("/Users/sps246/Research/R/r/run_agmip_simple_delta.R")
+source("/Users/sps246/Research/R/r/run_agmip_simple_delta.R")
+shortname[2]
+shortfile
+stnlat
+files = matrix(c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20),ncol=1)
+files
+source("/Users/sps246/Research/R/r/run_agmip_simple_delta.R")
+source("/Users/sps246/Research/R/r/run_agmip_simple2full.R")
